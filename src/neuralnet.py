@@ -87,6 +87,7 @@ def parseMNIST(data_dir):
     mndata = MNIST(data_dir)
     images, labels = mndata.load_training()
     for i in range(len(labels)):
+        images[i] = map(lambda x:float(x)/255, images[i])
         images[i].append(labels[i])
     header_data = [['attribute_%d'%(i+1), 'numeric'] for i in range(len(images[0]))]
     header_class = ['Class']
