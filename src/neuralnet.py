@@ -82,6 +82,51 @@ def isFloat(value):
   except ValueError:
     return False
 
+def parseMNIST(data_dir):
+    from mnist import MNIST
+    mndata = MNIST(data_dir)
+    images, labels = mndata.load_training()
+    for i in range(len(labels)):
+        images[i].append(labels[i])
+    header_data = [['attribute_%d'%(i+1), 'numeric'] for i in range(len(images[0]))]
+    header_class = ['Class']
+    header_class.extend(range(10))
+    header_data.append(header_class)
+    return header_data, images
+
+def parseMNIST_target(data_dir, target):
+    from mnist import MNIST
+    from collections import defaultdict
+
+    # file_data
+    sz = 11
+    mndata = MNIST(data_dir)
+    images, labels = mndata.load_training()
+    label_to_images = defaultdict(list)
+    label_cnt = defaultdict(lambda: 0)
+    data_cnt = 0
+    for image, label in zip(images, labels):
+        if data_cnt >= sz*18: break
+        if label==target:
+            if label_cnt[label] >= sz*9: continue
+            image = map(lambda x:float(x)/255, image)
+            image.append(1)
+        else:
+            if label_cnt[label] >= sz: continue
+            image = map(lambda x:float(x)/255, image)
+            image.append(0)
+        label_to_images[label].append(image)
+        label_cnt[label] += 1
+        data_cnt += 1
+    file_data = list()
+    for v in label_to_images.values():
+        file_data.extend(v)
+
+    # header_data
+    header_data = [['attribute_%d'%(i+1), 'numeric'] for i in range(len(images[0]))]
+    header_data.append(['Class', 0, 1])
+    return header_data, file_data
+
 def parseARFF(file_name):
     infile = open(file_name, "r")
     header_data_idx = 0
@@ -313,7 +358,8 @@ def main():
 
     # Part A - Programming
     global header
-    header, train_sample = parseARFF(sys.argv[1])
+    #header, train_sample = parseARFF(sys.argv[1])
+    header, train_sample = parseMNIST_target(sys.argv[1], 3)
 
     num_folds = int(sys.argv[2])
     learning_rate = float(sys.argv[3])
