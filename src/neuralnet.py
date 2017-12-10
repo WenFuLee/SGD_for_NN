@@ -6,6 +6,7 @@ import collections
 import random
 from copy import deepcopy
 import matplotlib.pyplot as plt
+import time
 
 header = []
 
@@ -14,7 +15,7 @@ class Perceptron:
         self.output = None
         self.weights = [None] * (feature_num + 1)
         self.sum_sqrt_g = [0] * (feature_num + 1)
-        random.seed(532)
+        #random.seed(532)
         for i in range(len(self.weights)):
             self.weights[i] = random.uniform(-1, 1)
             while self.weights[i] == -1:
@@ -226,7 +227,7 @@ def doGD(feature_num, train_sample, num_epochs, learning_rate, gd_tech):
     nn = NeuralNetwork(feature_num, learning_rate, gd_tech)
 
     for i in range(num_epochs):
-        #random.shuffle(train_sample)
+        random.shuffle(train_sample)
         for t in train_sample:
             # Input training sample to the network and compute all perceptrons' outputs
             nn.calOutputs(t)
@@ -258,20 +259,10 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
     each_fold_pos_size = int(float(each_fold_size) * pos_ratio + 0.5)
     each_fold_neg_size = each_fold_size - each_fold_pos_size
 
-    '''print('total_train_size = {}'.format(total_train_size))
-    print('each_fold_size = {}'.format(each_fold_size))
-    print('pos_ratio = {}'.format(pos_ratio))
-    print('each_fold_pos_size = {}'.format(each_fold_pos_size))
-    print('each_fold_neg_size = {}'.format(each_fold_neg_size))'''
-    '''for i, a in enumerate(all_pos_train_sample):
-        print('Pos: {}: {}, {}'.format(i, a[-2], a[-1]))
-    for i, a in enumerate(all_neg_train_sample):
-        print('Neg: {}: {}, {}'.format(i, a[-2], a[-1]))'''
-
     all_test_results = [None] * (total_train_size)
 
-    random.shuffle(all_pos_train_sample)
-    random.shuffle(all_neg_train_sample)
+    #random.shuffle(all_pos_train_sample)
+    #random.shuffle(all_neg_train_sample)
 
     for n in range(num_folds):
         pos_test_start_idx = n * each_fold_pos_size
@@ -284,40 +275,17 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
             pos_test_end_idx = (n + 1) * each_fold_pos_size - 1
             neg_test_end_idx = (n + 1) * each_fold_neg_size - 1
 
-        '''print('Pos: {}: {}'.format(pos_test_start_idx, pos_test_end_idx))
-        print('Neg: {}: {}'.format(neg_test_start_idx, neg_test_end_idx))'''
-
         pos_test_sample = all_pos_train_sample[pos_test_start_idx : (pos_test_end_idx + 1)]
         neg_test_sample = all_neg_train_sample[neg_test_start_idx : (neg_test_end_idx + 1)]
 
         test_sample = pos_test_sample + neg_test_sample;
-        random.shuffle(test_sample)
+        #random.shuffle(test_sample)
 
         pos_train_sample = all_pos_train_sample[0 : pos_test_start_idx] + all_pos_train_sample[(pos_test_end_idx + 1) : ]
         neg_train_sample = all_neg_train_sample[0 : neg_test_start_idx] + all_neg_train_sample[(neg_test_end_idx + 1) : ]
 
         train_sample = pos_train_sample + neg_train_sample;
-
-        '''print('**** n = {}****'.format(n))
-        for i, a in enumerate(train_sample[0:10]):
-            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))
-        for i, a in enumerate(test_sample[0:10]):
-            print('Test: {}: {}, {}'.format(i, a[-2], a[-1]))'''
-
-        '''for i, a in enumerate(test_sample):
-             print('Test: {}: {}, {}'.format(i, a[-2], a[-1]))'''
-        '''for i, a in enumerate(train_sample):
-            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))'''
-
-        random.shuffle(train_sample)
-
-        '''print('====')
-        for i, a in enumerate(train_sample):
-            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))'''
-        '''for i, a in enumerate(train_sample[0:10]):
-            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))
-        for i, a in enumerate(test_sample[0:10]):
-            print('Test: {}: {}, {}'.format(i, a[-2], a[-1]))'''
+        #random.shuffle(train_sample)
 
         feature_num = len(train_sample[0]) - 2
 
@@ -328,20 +296,28 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
     return all_test_results
 
 def plotPartB1(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
-    epoch_list = [25, 50, 75, 100]
-    #epoch_list = [1, 2, 3, 4]
+    #epoch_list = [25, 50, 75, 100]
+    epoch_list = [1, 2, 3, 4]
+    #epoch_list = [5, 15, 20, 25]
+    #epoch_list = [10, 20, 30, 40]
     #epoch_list = [1]
+    #epoch_list = [(i + 1) for i in range(10)]
     avg_accuracy_list = []
 
     for e in epoch_list:
+        time_start = time.clock()
         match_num = 0;
-        all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.1, gd_tech)
+        #all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.1, gd_tech)
+        all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.01, gd_tech)
+
+        time_elapsed = (time.clock() - time_start)
+        print('e = {}, time_elapsed = {}'.format(e, time_elapsed))
 
         for a in all_test_results:
             if (a[1] == a[2]):
                 match_num += 1
 
-        print('e = {}, match_num = {}'.format(e, match_num))
+        print('total_train_size = {}, match_num = {}, accuracy = {}'.format(total_train_size, match_num, float(match_num) / total_train_size))
         avg_accuracy_list.append(float(match_num) / total_train_size)
 
     new_x, new_y = zip(*sorted(zip(epoch_list, [i * 100 for i in avg_accuracy_list])))
@@ -355,7 +331,7 @@ def plotPartB1(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     plt.grid(which='both')
     plt.xlabel('# of epoch')
     plt.ylabel('% of accuracy')
-    plt.title("Part B 1")
+    plt.title("Part B 1 - {}".format(gd_tech))
     l = plt.legend(loc = 4)
     plt.show()
 
@@ -384,7 +360,7 @@ def plotPartB2(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     plt.grid(which='both')
     plt.xlabel('# of folds')
     plt.ylabel('% of accuracy')
-    plt.title("Part B 2")
+    plt.title("Part B 2 - {}".format(gd_tech))
     l = plt.legend(loc = 4)
     plt.show()
 
@@ -431,7 +407,7 @@ def plotPartB3(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     plt.grid(which='both')
     plt.xlabel('False positive rate')
     plt.ylabel('True positive rate')
-    plt.title("Part B 3")
+    plt.title("Part B 3 - {}".format(gd_tech))
     plt.show()
 
 def main():
@@ -439,8 +415,8 @@ def main():
 
     # Part A - Programming
     global header
-    header, train_sample = parseARFF(sys.argv[1])
-    #header, train_sample = parseMNIST_target(sys.argv[1], 3)
+    #header, train_sample = parseARFF(sys.argv[1])
+    header, train_sample = parseMNIST_target(sys.argv[1], 3)
 
     num_folds = int(sys.argv[2])
     learning_rate = float(sys.argv[3])
@@ -455,33 +431,11 @@ def main():
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
     #all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'SGD')
-    all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'AdaGrad')
+    #all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'AdaGrad')
 
     # Print outputs in the following order: fold_of_instance predicted_class actual_class confidence_of_prediction
-    for a in all_test_results:
-        print("{} {} {} {}".format(a[0], a[1], a[2], a[3]))
-
-    '''print(pos_train_sample[0])
-    print(pos_train_sample[1])
-    print(pos_train_sample[2])
-    random.shuffle(pos_train_sample[0:3])
-    print('=========')
-    print(pos_train_sample[0])
-    print(pos_train_sample[1])
-    print(pos_train_sample[2])'''
-    '''tmp = pos_train_sample[0:7]
-    print(tmp[0])
-    print(tmp[1])
-    print(tmp[2])
-    random.shuffle(tmp)
-    print('=========')
-    print(tmp[0])
-    print(tmp[1])
-    print(tmp[2])'''
-    '''test = range(6)
-    print(test)
-    random.shuffle(test)
-    print(test)'''
+    #for a in all_test_results:
+    #    print("{} {} {} {}".format(a[0], a[1], a[2], a[3]))
 
     # Part B 1 - Programming
     plotPartB1(pos_train_sample, neg_train_sample, total_train_size, 'SGD')
