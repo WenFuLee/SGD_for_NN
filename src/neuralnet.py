@@ -9,10 +9,12 @@ import matplotlib.pyplot as plt
 
 header = []
 
-class Perceptron: 
+class Perceptron:
     def __init__(self, feature_num):
         self.output = None
         self.weights = [None] * (feature_num + 1)
+        self.sum_sqrt_g = [0] * (feature_num + 1)
+        random.seed(532)
         for i in range(len(self.weights)):
             self.weights[i] = random.uniform(-1, 1)
             while self.weights[i] == -1:
@@ -47,6 +49,9 @@ class NeuralNetwork:
     def updateWeight(self, train_sample):
         if self.gd_tech == 'SGD':
             self.updateWeightSGD(train_sample)
+        elif self.gd_tech == 'AdaGrad':
+            #print('AdaGrad')
+            self.updateWeightAdaGrad(train_sample)
         else:
             print('Wrong argument names for GD techniques!')
 
@@ -72,6 +77,38 @@ class NeuralNetwork:
             else:
                 wgt_gd = common_item * self.hidden_layer[i - 1].output
             self.output_layer.weights[i] += wgt_gd
+
+    def updateWeightAdaGrad(self, train_sample):
+        #print(self.hidden_layer[0].sum_sqrt_g)
+        #print(self.output_layer.sum_sqrt_g[0])
+        epsilon = math.pow(10, -8)
+        #print(epsilon)
+
+        if header[-1][1] == train_sample[-1]:
+            common_item = (self.output_layer.output - 0)
+        else:
+            common_item = (self.output_layer.output - 1)
+
+        # Update weights of hidden layer
+        for h_idx in range(len(self.hidden_layer)):
+            for w_idx in range(len(self.hidden_layer[h_idx].weights)):
+                if w_idx == 0:
+                    wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output)
+                else:
+                    wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output) * train_sample[w_idx - 1]
+            self.hidden_layer[h_idx].sum_sqrt_g[w_idx] += wgt_gd * wgt_gd;
+            scaler = math.pow(self.hidden_layer[h_idx].sum_sqrt_g[w_idx] + epsilon, 0.5)
+            self.hidden_layer[h_idx].weights[w_idx] += -self.learning_rate * wgt_gd / scaler
+
+        # Update weights of output layer
+        for i in range(len(self.output_layer.weights)):
+            if i == 0:
+                wgt_gd = common_item
+            else:
+                wgt_gd = common_item * self.hidden_layer[i - 1].output
+            self.output_layer.sum_sqrt_g[i] += wgt_gd * wgt_gd;
+            scaler = math.pow(self.output_layer.sum_sqrt_g[i] + epsilon, 0.5)
+            self.output_layer.weights[i] += -self.learning_rate * wgt_gd / scaler
 
     def sigmoid(self, val):
         try:
@@ -184,11 +221,12 @@ def separateTrainSample(header, train_sample):
 
     return pos_train_sample, neg_train_sample
 
-def GD(feature_num, train_sample, num_epochs, learning_rate, gd_tech):
+def doGD(feature_num, train_sample, num_epochs, learning_rate, gd_tech):
     # Initialize all weights of all perceptrons in neural network to [-1, 1)
     nn = NeuralNetwork(feature_num, learning_rate, gd_tech)
 
     for i in range(num_epochs):
+        #random.shuffle(train_sample)
         for t in train_sample:
             # Input training sample to the network and compute all perceptrons' outputs
             nn.calOutputs(t)
@@ -220,6 +258,16 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
     each_fold_pos_size = int(float(each_fold_size) * pos_ratio + 0.5)
     each_fold_neg_size = each_fold_size - each_fold_pos_size
 
+    '''print('total_train_size = {}'.format(total_train_size))
+    print('each_fold_size = {}'.format(each_fold_size))
+    print('pos_ratio = {}'.format(pos_ratio))
+    print('each_fold_pos_size = {}'.format(each_fold_pos_size))
+    print('each_fold_neg_size = {}'.format(each_fold_neg_size))'''
+    '''for i, a in enumerate(all_pos_train_sample):
+        print('Pos: {}: {}, {}'.format(i, a[-2], a[-1]))
+    for i, a in enumerate(all_neg_train_sample):
+        print('Neg: {}: {}, {}'.format(i, a[-2], a[-1]))'''
+
     all_test_results = [None] * (total_train_size)
 
     random.shuffle(all_pos_train_sample)
@@ -236,6 +284,9 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
             pos_test_end_idx = (n + 1) * each_fold_pos_size - 1
             neg_test_end_idx = (n + 1) * each_fold_neg_size - 1
 
+        '''print('Pos: {}: {}'.format(pos_test_start_idx, pos_test_end_idx))
+        print('Neg: {}: {}'.format(neg_test_start_idx, neg_test_end_idx))'''
+
         pos_test_sample = all_pos_train_sample[pos_test_start_idx : (pos_test_end_idx + 1)]
         neg_test_sample = all_neg_train_sample[neg_test_start_idx : (neg_test_end_idx + 1)]
 
@@ -246,11 +297,31 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
         neg_train_sample = all_neg_train_sample[0 : neg_test_start_idx] + all_neg_train_sample[(neg_test_end_idx + 1) : ]
 
         train_sample = pos_train_sample + neg_train_sample;
+
+        '''print('**** n = {}****'.format(n))
+        for i, a in enumerate(train_sample[0:10]):
+            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))
+        for i, a in enumerate(test_sample[0:10]):
+            print('Test: {}: {}, {}'.format(i, a[-2], a[-1]))'''
+
+        '''for i, a in enumerate(test_sample):
+             print('Test: {}: {}, {}'.format(i, a[-2], a[-1]))'''
+        '''for i, a in enumerate(train_sample):
+            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))'''
+
         random.shuffle(train_sample)
+
+        '''print('====')
+        for i, a in enumerate(train_sample):
+            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))'''
+        '''for i, a in enumerate(train_sample[0:10]):
+            print('Train: {}: {}, {}'.format(i, a[-2], a[-1]))
+        for i, a in enumerate(test_sample[0:10]):
+            print('Test: {}: {}, {}'.format(i, a[-2], a[-1]))'''
 
         feature_num = len(train_sample[0]) - 2
 
-        nn = GD(feature_num, train_sample, num_epochs, learning_rate, gd_tech)
+        nn = doGD(feature_num, train_sample, num_epochs, learning_rate, gd_tech)
 
         predictTestSample(all_test_results, test_sample, n, nn)
 
@@ -258,6 +329,8 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
 
 def plotPartB1(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     epoch_list = [25, 50, 75, 100]
+    #epoch_list = [1, 2, 3, 4]
+    #epoch_list = [1]
     avg_accuracy_list = []
 
     for e in epoch_list:
@@ -268,6 +341,7 @@ def plotPartB1(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
             if (a[1] == a[2]):
                 match_num += 1
 
+        print('e = {}, match_num = {}'.format(e, match_num))
         avg_accuracy_list.append(float(match_num) / total_train_size)
 
     new_x, new_y = zip(*sorted(zip(epoch_list, [i * 100 for i in avg_accuracy_list])))
@@ -380,20 +454,46 @@ def main():
     total_train_size = len(train_sample)
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
-    all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'SGD')
+    #all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'SGD')
+    all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'AdaGrad')
 
     # Print outputs in the following order: fold_of_instance predicted_class actual_class confidence_of_prediction
     for a in all_test_results:
         print("{} {} {} {}".format(a[0], a[1], a[2], a[3]))
 
+    '''print(pos_train_sample[0])
+    print(pos_train_sample[1])
+    print(pos_train_sample[2])
+    random.shuffle(pos_train_sample[0:3])
+    print('=========')
+    print(pos_train_sample[0])
+    print(pos_train_sample[1])
+    print(pos_train_sample[2])'''
+    '''tmp = pos_train_sample[0:7]
+    print(tmp[0])
+    print(tmp[1])
+    print(tmp[2])
+    random.shuffle(tmp)
+    print('=========')
+    print(tmp[0])
+    print(tmp[1])
+    print(tmp[2])'''
+    '''test = range(6)
+    print(test)
+    random.shuffle(test)
+    print(test)'''
+
     # Part B 1 - Programming
-    #plotPartB1(pos_train_sample, neg_train_sample, total_train_size)
+    plotPartB1(pos_train_sample, neg_train_sample, total_train_size, 'SGD')
+    #plotPartB1(pos_train_sample, neg_train_sample, total_train_size, 'AdaGrad')
 
     # Part B 2 - Programming
-    #plotPartB2(pos_train_sample, neg_train_sample, total_train_size)
+    #plotPartB2(pos_train_sample, neg_train_sample, total_train_size, 'SGD')
+    #plotPartB2(pos_train_sample, neg_train_sample, total_train_size, 'AdaGrad')
 
     # Part B 3 - Programming
-    #plotPartB3(pos_train_sample, neg_train_sample, total_train_size)
+    #plotPartB3(pos_train_sample, neg_train_sample, total_train_size, 'SGD')
+    #plotPartB3(pos_train_sample, neg_train_sample, total_train_size, 'AdaGrad')
 
 if __name__ == "__main__":
     main()
