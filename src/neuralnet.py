@@ -68,7 +68,7 @@ class NeuralNetwork:
                     wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output)
                 else:
                     wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output) * train_sample[w_idx - 1]
-            self.hidden_layer[h_idx].weights[w_idx] += wgt_gd
+                self.hidden_layer[h_idx].weights[w_idx] += wgt_gd
 
         # Update weights of output layer
         for i in range(len(self.output_layer.weights)):
@@ -93,9 +93,9 @@ class NeuralNetwork:
                     wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output)
                 else:
                     wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output) * train_sample[w_idx - 1]
-            self.hidden_layer[h_idx].sum_sqrt_g[w_idx] += wgt_gd * wgt_gd;
-            scaler = math.pow(self.hidden_layer[h_idx].sum_sqrt_g[w_idx] + epsilon, 0.5)
-            self.hidden_layer[h_idx].weights[w_idx] += -self.learning_rate * wgt_gd / scaler
+                self.hidden_layer[h_idx].sum_sqrt_g[w_idx] += wgt_gd * wgt_gd;
+                scaler = math.pow(self.hidden_layer[h_idx].sum_sqrt_g[w_idx] + epsilon, 0.5)
+                self.hidden_layer[h_idx].weights[w_idx] += -self.learning_rate * wgt_gd / scaler
 
         # Update weights of output layer
         for i in range(len(self.output_layer.weights)):
@@ -517,7 +517,7 @@ def main():
     total_train_size = len(train_sample)
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
-    gd_tech = 'SGD' # 'SGD' or 'AdaGrad' or 'Adam'
+    gd_tech = 'AdaGrad' # 'SGD' or 'AdaGrad' or 'Adam'
 
     # ************************************************
     # **** This part is for customized parameters ****
