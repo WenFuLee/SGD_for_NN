@@ -304,8 +304,11 @@ def SCV_v2(all_pos_train_sample, all_neg_train_sample, total_train_size, num_fol
     #random.shuffle(all_neg_train_sample)
 
     # Initialize all weights of all perceptrons in neural network to [-1, 1)
-    random.seed(num_epochs)
-    nn = NeuralNetwork(len(header) - 1, learning_rate, gd_tech)
+    nn_list = []
+    for n in range(num_folds):
+        random.seed(num_epochs)
+        nn = NeuralNetwork(len(header) - 1, learning_rate, gd_tech)
+        nn_list.append(nn)
 
     for i in range(num_epochs):
         time_start = time.clock()
@@ -338,12 +341,12 @@ def SCV_v2(all_pos_train_sample, all_neg_train_sample, total_train_size, num_fol
             random.shuffle(train_sample)
             for t in train_sample:
                 # Input training sample to the network and compute all perceptrons' outputs
-                nn.calOutputs(t)
+                nn_list[n].calOutputs(t)
 
                 # Update weights based on gradient descent theory
-                nn.updateWeight(t)
+                nn_list[n].updateWeight(t)
 
-            predictTestSample(all_test_results, test_sample, n, nn)
+            predictTestSample(all_test_results, test_sample, n, nn_list[n])
 
         time_elapsed = (time.clock() - time_start)
         print('i = {}, time_elapsed = {}'.format(i, time_elapsed))
@@ -514,7 +517,7 @@ def main():
     total_train_size = len(train_sample)
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
-    gd_tech = 'AdaGrad' # 'SGD' or 'AdaGrad' or 'Adam'
+    gd_tech = 'SGD' # 'SGD' or 'AdaGrad' or 'Adam'
 
     # ************************************************
     # **** This part is for customized parameters ****
