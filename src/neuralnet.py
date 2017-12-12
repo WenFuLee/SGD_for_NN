@@ -19,8 +19,9 @@ class Perceptron:
                 self.weights[i] = random.uniform(-1, 1)
 
 class NeuralNetwork:
-    def __init__(self, feature_num, learning_rate):
+    def __init__(self, feature_num, learning_rate, gd_tech):
         self.learning_rate = learning_rate
+        self.gd_tech = gd_tech
         self.output_layer = Perceptron(feature_num)
         self.hidden_layer = [];
         for i in range(feature_num):
@@ -44,6 +45,12 @@ class NeuralNetwork:
         self.output_layer.output = self.sigmoid(output)
 
     def updateWeight(self, train_sample):
+        if self.gd_tech == 'SGD':
+            self.updateWeightSGD(train_sample)
+        else:
+            print('Wrong argument names for GD techniques!')
+
+    def updateWeightSGD(self, train_sample):
         if header[-1][1] == train_sample[-1]:
             common_item = -self.learning_rate * (self.output_layer.output - 0)
         else:
@@ -178,9 +185,9 @@ def separateTrainSample(header, train_sample):
 
     return pos_train_sample, neg_train_sample
 
-def SGD(feature_num, train_sample, num_epochs, learning_rate):
+def GD(feature_num, train_sample, num_epochs, learning_rate, gd_tech):
     # Initialize all weights of all perceptrons in neural network to [-1, 1)
-    nn = NeuralNetwork(feature_num, learning_rate)
+    nn = NeuralNetwork(feature_num, learning_rate, gd_tech)
 
     for i in range(num_epochs):
         for t in train_sample:
@@ -208,7 +215,7 @@ def predictTestSample(all_test_results, test_sample, fold_of_instance, nn):
         all_test_results[idx_of_total].append(test_sample[i][-1])
         all_test_results[idx_of_total].append(nn.output_layer.output)
 
-def doSGD(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate):
+def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, gd_tech):
     each_fold_size = int(float(total_train_size) / num_folds + 0.5)
     pos_ratio = float(len(all_pos_train_sample)) / total_train_size
     each_fold_pos_size = int(float(each_fold_size) * pos_ratio + 0.5)
@@ -244,19 +251,19 @@ def doSGD(all_pos_train_sample, all_neg_train_sample, total_train_size, num_fold
 
         feature_num = len(train_sample[0]) - 2
 
-        nn = SGD(feature_num, train_sample, num_epochs, learning_rate)
+        nn = GD(feature_num, train_sample, num_epochs, learning_rate, gd_tech)
 
         predictTestSample(all_test_results, test_sample, n, nn)
 
     return all_test_results
 
-def plotPartB1(pos_train_sample, neg_train_sample, total_train_size):
+def plotPartB1(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     epoch_list = [25, 50, 75, 100]
     avg_accuracy_list = []
 
     for e in epoch_list:
         match_num = 0;
-        all_test_results = doSGD(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.1)
+        all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.1, gd_tech)
 
         for a in all_test_results:
             if (a[1] == a[2]):
@@ -279,13 +286,13 @@ def plotPartB1(pos_train_sample, neg_train_sample, total_train_size):
     l = plt.legend(loc = 4)
     plt.show()
 
-def plotPartB2(pos_train_sample, neg_train_sample, total_train_size):
+def plotPartB2(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     num_folds_list = [5, 10, 15, 20, 25]
     avg_accuracy_list = []
 
     for n in num_folds_list:
         match_num = 0;
-        all_test_results = doSGD(pos_train_sample, neg_train_sample, total_train_size, n, 50, 0.1)
+        all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, n, 50, 0.1, gd_tech)
 
         for a in all_test_results:
             if (a[1] == a[2]):
@@ -308,8 +315,8 @@ def plotPartB2(pos_train_sample, neg_train_sample, total_train_size):
     l = plt.legend(loc = 4)
     plt.show()
 
-def plotPartB3(pos_train_sample, neg_train_sample, total_train_size):
-    all_test_results = doSGD(pos_train_sample, neg_train_sample, total_train_size, 10, 50, 0.1)
+def plotPartB3(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
+    all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, 50, 0.1, gd_tech)
     all_test_results.sort(key = lambda x : (1 / x[-1]))
 
     num_neg = len(neg_train_sample)
@@ -359,8 +366,8 @@ def main():
 
     # Part A - Programming
     global header
-    #header, train_sample = parseARFF(sys.argv[1])
-    header, train_sample = parseMNIST_target(sys.argv[1], 3)
+    header, train_sample = parseARFF(sys.argv[1])
+    #header, train_sample = parseMNIST_target(sys.argv[1], 3)
 
     num_folds = int(sys.argv[2])
     learning_rate = float(sys.argv[3])
@@ -374,7 +381,7 @@ def main():
     total_train_size = len(train_sample)
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
-    all_test_results = doSGD(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate)
+    all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, 'SGD')
 
     # Print outputs in the following order: fold_of_instance predicted_class actual_class confidence_of_prediction
     for a in all_test_results:
