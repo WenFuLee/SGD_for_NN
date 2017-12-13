@@ -89,11 +89,11 @@ def isFloat(value):
   except ValueError:
     return False
 
-def parseMNIST(data_dir):
+def parseMNIST(data_dir, data_size):
     from mnist import MNIST
     mndata = MNIST(data_dir)
     images, labels = mndata.load_training()
-    for i in range(len(labels)):
+    for i in range(data_size):
         images[i] = map(lambda x:float(x)/255, images[i])
         images[i].append(labels[i])
     header_data = [['attribute_%d'%(i+1), 'numeric'] for i in range(len(images[0]))]
@@ -102,25 +102,25 @@ def parseMNIST(data_dir):
     header_data.append(header_class)
     return header_data, images
 
-def parseMNIST_target(data_dir, target):
+def parseMNIST_target(data_dir, target, data_size):
     from mnist import MNIST
     from collections import defaultdict
 
     # file_data
-    sz = 11
+    sz = data_size/18
     mndata = MNIST(data_dir)
     images, labels = mndata.load_training()
     label_to_images = defaultdict(list)
     label_cnt = defaultdict(lambda: 0)
     data_cnt = 0
     for image, label in zip(images, labels):
-        if data_cnt >= sz*18: break
+        if data_cnt >= data_size: break
         if label==target:
-            if label_cnt[label] >= sz*9: continue
+            if label_cnt[label] >= sz*9 and data_cnt < sz*18: continue
             image = map(lambda x:float(x)/255, image)
             image.append(1)
         else:
-            if label_cnt[label] >= sz: continue
+            if label_cnt[label] >= sz and data_cnt < sz*18: continue
             image = map(lambda x:float(x)/255, image)
             image.append(0)
         label_to_images[label].append(image)
@@ -367,7 +367,7 @@ def main():
     # Part A - Programming
     global header
     header, train_sample = parseARFF(sys.argv[1])
-    #header, train_sample = parseMNIST_target(sys.argv[1], 3)
+    #header, train_sample = parseMNIST_target(sys.argv[1], 3, 2000)
 
     num_folds = int(sys.argv[2])
     learning_rate = float(sys.argv[3])
