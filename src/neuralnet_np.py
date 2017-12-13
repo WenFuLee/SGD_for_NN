@@ -7,44 +7,27 @@ import random
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import time
+import numpy as np
 
 header = []
 
-class Perceptron:
-    def __init__(self, feature_num):
-        self.output = None
-        self.weights = [None] * (feature_num + 1)
-        self.sum_sqrt_g = [0] * (feature_num + 1)
-        for i in range(len(self.weights)):
-            self.weights[i] = random.uniform(-1, 1)
-            while self.weights[i] == -1:
-                self.weights[i] = random.uniform(-1, 1)
-
 class NeuralNetwork:
-    def __init__(self, feature_num, learning_rate, gd_tech):
+    def __init__(self, input_dim, learning_rate, gd_tech):
+        hidden_nodes = input_dim
         self.learning_rate = learning_rate
         self.gd_tech = gd_tech
-        self.output_layer = Perceptron(feature_num)
-        self.hidden_layer = [];
-        for i in range(feature_num):
-            self.hidden_layer.append(Perceptron(feature_num))
+        self.W_matrix = 2*np.random.rand(input_dim + 1, hidden_nodes) - 1
+        self.V_matrix = 2*np.random.rand(hidden_nodes + 1) - 1
+        self.hidden_out = None
+        self.final_out = None
+        self.sum_dW_square = np.zeros((input_dim + 1, hidden_nodes))
+        self.sum_dV_square = np.zeros((hidden_nodes + 1))
 
     def calOutputs(self, train_sample):
-        for h_idx in range(len(self.hidden_layer)):
-            output = 0.0
-            for w_idx in range(len(self.hidden_layer[0].weights)):
-                if w_idx == 0:
-                    output = self.hidden_layer[h_idx].weights[0]
-                else:
-                    output += self.hidden_layer[h_idx].weights[w_idx] * train_sample[w_idx - 1]
-            self.hidden_layer[h_idx].output = self.sigmoid(output)
-
-        for w_idx in range(len(self.output_layer.weights)):
-            if w_idx == 0:
-                output = self.output_layer.weights[0]
-            else:
-                output += self.output_layer.weights[w_idx] * self.hidden_layer[w_idx - 1].output
-        self.output_layer.output = self.sigmoid(output)
+        self.hidden_out = np.dot(np.array([1] + train_sample[:-2]), self.W_matrix)
+        self.hidden_out = 1 / (1 + np.exp(-self.hidden_out))
+        self.final_out = np.dot(np.hstack((1, self.hidden_out)), self.V_matrix)
+        self.final_out = 1 / (1 + np.exp(-self.final_out))
 
     def updateWeight(self, train_sample):
         if self.gd_tech == 'SGD':
@@ -57,55 +40,54 @@ class NeuralNetwork:
 
     def updateWeightSGD(self, train_sample):
         if header[-1][1] == train_sample[-1]:
-            common_item = -self.learning_rate * (self.output_layer.output - 0)
+            dcdz = self.final_out - 0
         else:
-            common_item = -self.learning_rate * (self.output_layer.output - 1)
+            dcdz = self.final_out - 1
 
-        # Update weights of hidden layer
-        for h_idx in range(len(self.hidden_layer)):
-            for w_idx in range(len(self.hidden_layer[h_idx].weights)):
-                if w_idx == 0:
-                    wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output)
-                else:
-                    wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output) * train_sample[w_idx - 1]
-                self.hidden_layer[h_idx].weights[w_idx] += wgt_gd
+        
+        '''     
+        print 'dcdz', np.shape(dcdz)
+        print 'hidden', np.shape(np.hstack((1, self.hidden_out)))
+        print 'dody*hidden', np.shape(dcdz*np.hstack((1, self.hidden_out)))
+        print 'all', np.shape(self.learning_rate*dcdz*np.hstack((1, self.hidden_out)))
+        print 'all', np.shape(self.learning_rate*np.hstack((1, self.hidden_out))*dcdz)
+        '''     
+        # Update weights of output layer (V_matrix)
+        new_V = self.V_matrix - self.learning_rate * np.hstack((1, self.hidden_out)) * dcdz # 1+hidden, 1
 
-        # Update weights of output layer
-        for i in range(len(self.output_layer.weights)):
-            if i == 0:
-                wgt_gd = common_item
-            else:
-                wgt_gd = common_item * self.hidden_layer[i - 1].output
-            self.output_layer.weights[i] += wgt_gd
+        # Update weights of W_matrix
+        gamma = np.multiply( self.V_matrix[1:], np.multiply(self.hidden_out, 1 - self.hidden_out)) * dcdz # hidden, 1
+        new_W = self.W_matrix - self.learning_rate * np.outer(np.hstack((1, train_sample[:-2])), gamma) # 1+p, hidden
+        '''     
+        print "W", np.shape(self.W_matrix)
+        print "V", np.shape(self.V_matrix)
+        print "newW", np.shape(new_W)
+        print "newV", np.shape(new_V)
+        '''
+        self.V_matrix = new_V
+        self.W_matrix = new_W
 
     def updateWeightAdaGrad(self, train_sample):
         epsilon = math.pow(10, -8)
 
         if header[-1][1] == train_sample[-1]:
-            common_item = (self.output_layer.output - 0)
+            dcdz = self.final_out - 0
         else:
-            common_item = (self.output_layer.output - 1)
-
-        # Update weights of hidden layer
-        for h_idx in range(len(self.hidden_layer)):
-            for w_idx in range(len(self.hidden_layer[h_idx].weights)):
-                if w_idx == 0:
-                    wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output)
-                else:
-                    wgt_gd = common_item * self.output_layer.weights[h_idx + 1] * self.hidden_layer[h_idx].output * (1 - self.hidden_layer[h_idx].output) * train_sample[w_idx - 1]
-                self.hidden_layer[h_idx].sum_sqrt_g[w_idx] += wgt_gd * wgt_gd;
-                scaler = math.pow(self.hidden_layer[h_idx].sum_sqrt_g[w_idx] + epsilon, 0.5)
-                self.hidden_layer[h_idx].weights[w_idx] += -self.learning_rate * wgt_gd / scaler
+            dcdz = self.final_out - 1
 
         # Update weights of output layer
-        for i in range(len(self.output_layer.weights)):
-            if i == 0:
-                wgt_gd = common_item
-            else:
-                wgt_gd = common_item * self.hidden_layer[i - 1].output
-            self.output_layer.sum_sqrt_g[i] += wgt_gd * wgt_gd;
-            scaler = math.pow(self.output_layer.sum_sqrt_g[i] + epsilon, 0.5)
-            self.output_layer.weights[i] += -self.learning_rate * wgt_gd / scaler
+        dcdv = np.hstack((1, self.hidden_out)) * dcdz # 1 + hidden, 1
+        self.sum_dV_square += np.power(dcdv, 2)
+        new_V = self.V_matrix - self.learning_rate * np.divide(dcdv, np.sqrt(self.sum_dV_square + epsilon))
+
+        # Update weights of hidden layer
+        gamma = np.multiply( self.V_matrix[1:], np.multiply(self.hidden_out, 1 - self.hidden_out)) * dcdz # hidden, 1
+        dcdw = np.outer(np.hstack((1, train_sample[:-2])), gamma) # 1 + p, hidden
+        self.sum_dW_square += np.power(dcdw, 2)
+        new_W = self.W_matrix - self.learning_rate * np.divide(dcdw, np.sqrt(self.sum_dW_square + epsilon))
+
+        self.V_matrix = new_V
+        self.W_matrix = new_W
 
     def sigmoid(self, val):
         try:
@@ -123,12 +105,11 @@ def isFloat(value):
   except ValueError:
     return False
 
-def parseMNIST(data_dir, data_size):
+def parseMNIST(data_dir):
     from mnist import MNIST
     mndata = MNIST(data_dir)
     images, labels = mndata.load_training()
-    for i in range(data_size):
-        images[i] = map(lambda x:float(x)/255, images[i])
+    for i in range(len(labels)):
         images[i].append(labels[i])
     header_data = [['attribute_%d'%(i+1), 'numeric'] for i in range(len(images[0]))]
     header_class = ['Class']
@@ -136,25 +117,25 @@ def parseMNIST(data_dir, data_size):
     header_data.append(header_class)
     return header_data, images
 
-def parseMNIST_target(data_dir, target, data_size):
+def parseMNIST_target(data_dir, target):
     from mnist import MNIST
     from collections import defaultdict
 
     # file_data
-    sz = data_size/18
+    sz = 11
     mndata = MNIST(data_dir)
     images, labels = mndata.load_training()
     label_to_images = defaultdict(list)
     label_cnt = defaultdict(lambda: 0)
     data_cnt = 0
     for image, label in zip(images, labels):
-        if data_cnt >= data_size: break
+        if data_cnt >= sz*18: break
         if label==target:
-            if label_cnt[label] >= sz*9 and data_cnt < sz*18: continue
+            if label_cnt[label] >= sz*9: continue
             image = map(lambda x:float(x)/255, image)
             image.append(1)
         else:
-            if label_cnt[label] >= sz and data_cnt < sz*18: continue
+            if label_cnt[label] >= sz: continue
             image = map(lambda x:float(x)/255, image)
             image.append(0)
         label_to_images[label].append(image)
@@ -242,13 +223,13 @@ def predictTestSample(all_test_results, test_sample, fold_of_instance, nn):
         all_test_results[idx_of_total] = []
         all_test_results[idx_of_total].append(fold_of_instance)
 
-        if nn.output_layer.output < 0.5:
+        if nn.final_out < 0.5:
             all_test_results[idx_of_total].append(header[-1][1])
         else:
             all_test_results[idx_of_total].append(header[-1][2])
 
         all_test_results[idx_of_total].append(test_sample[i][-1])
-        all_test_results[idx_of_total].append(nn.output_layer.output)
+        all_test_results[idx_of_total].append(nn.final_out)
 
 def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, gd_tech):
     each_fold_size = int(float(total_train_size) / num_folds + 0.5)
@@ -307,7 +288,7 @@ def SCV_v2(all_pos_train_sample, all_neg_train_sample, total_train_size, num_fol
     # Initialize all weights of all perceptrons in neural network to [-1, 1)
     nn_list = []
     for n in range(num_folds):
-        random.seed(num_epochs)
+        np.random.seed(num_epochs)
         nn = NeuralNetwork(len(header) - 1, learning_rate, gd_tech)
         nn_list.append(nn)
 
@@ -374,7 +355,6 @@ def plotPartB1(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     for e in epoch_list:
         time_start = time.clock()
         match_num = 0;
-        #all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.1, gd_tech)
         all_test_results = SCV(pos_train_sample, neg_train_sample, total_train_size, 10, e, 0.01, gd_tech)
 
         time_elapsed = (time.clock() - time_start)
@@ -478,7 +458,7 @@ def plotPartB3(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     plt.show()
 
 def plotPartB4(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
-    num_epochs = 4
+    num_epochs = 10
     epoch_list = [(i + 1) for i in range(num_epochs)]
 
     avg_accuracy_list = SCV_v2(pos_train_sample, neg_train_sample, total_train_size, 10, num_epochs, 0.01, gd_tech)
@@ -499,16 +479,16 @@ def plotPartB4(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     plt.show()
 
 def main():
-    assert len(sys.argv) == 5
+    #assert len(sys.argv) == 5
 
     # Part A - Programming
     global header
-    header, train_sample = parseARFF(sys.argv[1])
-    #header, train_sample = parseMNIST_target(sys.argv[1], 3, 2000)
+    #header, train_sample = parseARFF(sys.argv[1])
+    header, train_sample = parseMNIST_target(sys.argv[1], 3)
 
-    num_folds = int(sys.argv[2])
-    learning_rate = float(sys.argv[3])
-    num_epochs = int(sys.argv[4])
+    #num_folds = int(sys.argv[2])
+    #learning_rate = float(sys.argv[3])
+    #num_epochs = int(sys.argv[4])
 
     # Label training samples for outputing prediction results in the original order
     for i in range(len(train_sample)):
