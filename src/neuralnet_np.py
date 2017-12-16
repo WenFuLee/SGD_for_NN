@@ -20,8 +20,13 @@ class NeuralNetwork:
         self.V_matrix = 2*np.random.rand(hidden_nodes + 1) - 1
         self.hidden_out = None
         self.final_out = None
+
+        # for adagrad and adam
         self.sum_dW_square = np.zeros((input_dim + 1, hidden_nodes))
         self.sum_dV_square = np.zeros((hidden_nodes + 1))
+        self.sum_dW = np.zeros((input_dim + 1, hidden_nodes))
+        self.sum_dV = np.zeros((hidden_nodes + 1))
+        self.update_time = 0
 
     def calOutputs(self, train_sample):
         self.hidden_out = np.dot(np.array([1] + train_sample[:-2]), self.W_matrix)
@@ -33,8 +38,9 @@ class NeuralNetwork:
         if self.gd_tech == 'SGD':
             self.updateWeightSGD(train_sample)
         elif self.gd_tech == 'AdaGrad':
-            #print('AdaGrad')
             self.updateWeightAdaGrad(train_sample)
+        elif self.gd_tech == 'Adam':
+            self.updateWeightAdam(train_sample)
         else:
             print('Wrong argument names for GD techniques!')
 
@@ -46,8 +52,6 @@ class NeuralNetwork:
 
         
         '''     
-        print 'dcdz', np.shape(dcdz)
-        print 'hidden', np.shape(np.hstack((1, self.hidden_out)))
         print 'dody*hidden', np.shape(dcdz*np.hstack((1, self.hidden_out)))
         print 'all', np.shape(self.learning_rate*dcdz*np.hstack((1, self.hidden_out)))
         print 'all', np.shape(self.learning_rate*np.hstack((1, self.hidden_out))*dcdz)
@@ -84,7 +88,41 @@ class NeuralNetwork:
         gamma = np.multiply( self.V_matrix[1:], np.multiply(self.hidden_out, 1 - self.hidden_out)) * dcdz # hidden, 1
         dcdw = np.outer(np.hstack((1, train_sample[:-2])), gamma) # 1 + p, hidden
         self.sum_dW_square += np.power(dcdw, 2)
-        new_W = self.W_matrix - self.learning_rate * np.divide(dcdw, np.sqrt(self.sum_dW_square + epsilon))
+        #new_W = self.W_matrix - self.learning_rate * np.divide(dcdw, np.sqrt(self.sum_dW_square + epsilon))
+        new_W = self.W_matrix - self.learning_rate * np.divide(dcdw, np.sqrt(self.sum_dW_square) + epsilon)
+
+        self.V_matrix = new_V
+        self.W_matrix = new_W
+
+    def updateWeightAdam(self, train_sample):
+        epsilon = math.pow(10, -8)
+        beta_1 = 0.9
+        beta_2 = 0.999
+        self.update_time += 1
+
+        if header[-1][1] == train_sample[-1]:
+            dcdz = self.final_out - 0
+        else:
+            dcdz = self.final_out - 1
+
+        # Update weights of output layer
+        dcdv = np.hstack((1, self.hidden_out)) * dcdz # 1 + hidden, 1
+        self.sum_dV = beta_1*self.sum_dV + (1 - beta_1)*dcdv
+        self.sum_dV_square = beta_2*self.sum_dV_square + (1 - beta_2)*np.power(dcdv, 2)
+        # bias correction
+        sum_dV_correct = self.sum_dV / (1 - beta_1**self.update_time)
+        sum_dV_square_correct = self.sum_dV_square / (1 - beta_2**self.update_time)
+        new_V = self.V_matrix - self.learning_rate * np.divide(sum_dV_correct, np.sqrt(sum_dV_square_correct) + epsilon)
+
+        # Update weights of hidden layer
+        gamma = np.multiply( self.V_matrix[1:], np.multiply(self.hidden_out, 1 - self.hidden_out)) * dcdz # hidden, 1
+        dcdw = np.outer(np.hstack((1, train_sample[:-2])), gamma) # 1 + p, hidden
+        self.sum_dW = beta_1*self.sum_dW + (1 - beta_1) * dcdw
+        self.sum_dW_square = beta_2*self.sum_dW_square + (1 - beta_2)*np.power(dcdw, 2)
+        # bias correction
+        sum_dW_correct = self.sum_dW / (1 - beta_1**self.update_time)
+        sum_dW_square_correct = self.sum_dW_square / (1 - beta_2**self.update_time)
+        new_W = self.W_matrix - self.learning_rate * np.divide(sum_dW_correct, np.sqrt(sum_dW_square_correct) + epsilon)
 
         self.V_matrix = new_V
         self.W_matrix = new_W
@@ -288,6 +326,7 @@ def SCV_v2(all_pos_train_sample, all_neg_train_sample, total_train_size, num_fol
     # Initialize all weights of all perceptrons in neural network to [-1, 1)
     nn_list = []
     for n in range(num_folds):
+        random.seed(num_epochs)
         np.random.seed(num_epochs)
         nn = NeuralNetwork(len(header) - 1, learning_rate, gd_tech)
         nn_list.append(nn)
@@ -498,7 +537,7 @@ def main():
     total_train_size = len(train_sample)
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
-    gd_tech = 'AdaGrad' # 'SGD' or 'AdaGrad' or 'Adam'
+    gd_tech = 'SGD' # 'SGD' or 'AdaGrad' or 'Adam'
 
     # ************************************************
     # **** This part is for customized parameters ****
