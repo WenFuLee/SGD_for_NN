@@ -557,7 +557,7 @@ def plotPartB5(pos_train_sample, neg_train_sample, gd_tech):
         for gd_tech in gd_tech_list:
             match_num = 0
             time_start = time.clock()
-            all_test_results = SCV(pos_sample, neg_sample, datasize, 2, 2, 0.01, gd_tech)
+            all_test_results = SCV(pos_sample, neg_sample, datasize, 10, 10, 0.01, gd_tech)
             for a in all_test_results:
                 if (a[1] == a[2]):
                     match_num += 1
