@@ -13,7 +13,7 @@ header = []
 
 class NeuralNetwork:
     def __init__(self, input_dim, learning_rate, gd_tech):
-        hidden_nodes = input_dim
+        hidden_nodes = input_dim / 14
         self.learning_rate = learning_rate
         self.gd_tech = gd_tech
         self.W_matrix = 2*np.random.rand(input_dim + 1, hidden_nodes) - 1
@@ -292,7 +292,7 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
         else:
             pos_test_end_idx = (n + 1) * each_fold_pos_size - 1
             neg_test_end_idx = (n + 1) * each_fold_neg_size - 1
-
+    
         pos_test_sample = all_pos_train_sample[pos_test_start_idx : (pos_test_end_idx + 1)]
         neg_test_sample = all_neg_train_sample[neg_test_start_idx : (neg_test_end_idx + 1)]
 
@@ -307,6 +307,8 @@ def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds,
 
         feature_num = len(train_sample[0]) - 2
 
+        random.seed(num_epochs)
+        np.random.seed(num_epochs)
         nn = doGD(feature_num, train_sample, num_epochs, learning_rate, gd_tech)
 
         predictTestSample(all_test_results, test_sample, n, nn)
@@ -519,6 +521,68 @@ def plotPartB4(pos_train_sample, neg_train_sample, total_train_size, gd_tech):
     l = plt.legend(loc = 4)
     plt.show()
 
+def reindex(start, pos_train_sample, neg_train_sample):
+    i = start
+    for pos in pos_train_sample:
+        pos[-2] = i
+        i += 1
+    for neg in neg_train_sample:
+        neg[-2] = i
+        i += 1
+    return i
+
+def plotPartB5(pos_train_sample, neg_train_sample, gd_tech):
+    num_size = 10
+    upper_size = 2000
+    datasize_list = [upper_size/num_size*(i+1) for i in range(num_size)]
+    random.shuffle(pos_train_sample)
+    random.shuffle(neg_train_sample)
+
+    start_idx = 0
+    start_pos_idx = 0
+    start_neg_idx = 0
+    gd_tech_list = ["SGD", "AdaGrad", "Adam"]
+    avg_accuracy_dict = dict()
+    for gd_tech in gd_tech_list:
+        avg_accuracy_dict[gd_tech] = []
+    for datasize in datasize_list:
+        pos_size = int(round(datasize/2.0)) if datasize < upper_size else len(pos_train_sample)
+        neg_size = datasize - pos_size if datasize < upper_size else len(neg_train_sample)
+        pos_sample = pos_train_sample[:pos_size]
+        neg_sample = neg_train_sample[:neg_size]
+        start_idx = reindex(start_idx, pos_sample[start_pos_idx:pos_size], neg_sample[start_neg_idx:neg_size])
+        start_pos_idx = pos_size
+        start_neg_idx = neg_size
+        print len(pos_sample), len(neg_sample), datasize
+        for gd_tech in gd_tech_list:
+            match_num = 0
+            time_start = time.clock()
+            all_test_results = SCV(pos_sample, neg_sample, datasize, 2, 2, 0.01, gd_tech)
+            for a in all_test_results:
+                if (a[1] == a[2]):
+                    match_num += 1
+            accuracy = float(match_num) / datasize
+            time_elapsed = (time.clock() - time_start)
+            print('{} total_train_size = {}, match_num = {}, accuracy = {}, time_elapsed = {}'.format(gd_tech, datasize, match_num, accuracy, time_elapsed))
+            #avg_accuracy_list.append(accuracy)
+            avg_accuracy_dict[gd_tech].append(accuracy)
+
+    for gd_tech, color in zip(gd_tech_list, ['r', 'g', 'b']):
+        new_x, new_y = zip(*sorted(zip(datasize_list, [i * 100 for i in avg_accuracy_dict[gd_tech]])))
+        plt.plot(new_x, new_y, 'go-', label=gd_tech, color=color)
+
+    global_min = max(min([min([i * 100 for i in avg_accuracy_dict[gd_tech]]) for gd_tech in gd_tech_list]) - 1, 0)
+    global_max = min(max([max([i * 100 for i in avg_accuracy_dict[gd_tech]]) for gd_tech in gd_tech_list]) + 1, 100)
+    plt.axis([1, datasize_list[-1], global_min, global_max])
+    plt.xticks(new_x)
+    #plt.yticks(new_y)
+    plt.grid(which='both')
+    plt.xlabel('data size')
+    plt.ylabel('% of accuracy')
+    plt.title("Accuracy vs Data Size")
+    l = plt.legend(loc = 4)
+    plt.show()
+
 def main():
     #assert len(sys.argv) == 5
 
@@ -539,7 +603,7 @@ def main():
     total_train_size = len(train_sample)
     pos_train_sample, neg_train_sample = separateTrainSample(header, train_sample)
 
-    gd_tech = 'SGD' # 'SGD' or 'AdaGrad' or 'Adam'
+    gd_tech = 'AdaGrad' # 'SGD' or 'AdaGrad' or 'Adam'
 
     # ************************************************
     # **** This part is for customized parameters ****
@@ -561,7 +625,10 @@ def main():
     #plotPartB3(pos_train_sample, neg_train_sample, total_train_size, gd_tech)
 
     # Part B 4 - Output accuracy for each epoch
-    plotPartB4(pos_train_sample, neg_train_sample, total_train_size, gd_tech)
+    #plotPartB4(pos_train_sample, neg_train_sample, total_train_size, gd_tech)
+
+    # Part B 5 - Output accuracy for each data size
+    plotPartB5(pos_train_sample, neg_train_sample, gd_tech)
 
 if __name__ == "__main__":
     main()
