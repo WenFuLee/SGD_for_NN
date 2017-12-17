@@ -271,6 +271,83 @@ def predictTestSample(all_test_results, test_sample, fold_of_instance, nn):
         all_test_results[idx_of_total].append(test_sample[i][-1])
         all_test_results[idx_of_total].append(nn.final_out)
 
+def getLoss(sample, nn):
+    result = 0
+    for i in range(len(sample)):
+        nn.calOutputs(sample[i])
+        if nn.final_out < 1e-8:
+            nn.final_out = 1e-8
+        if nn.final_out > (1 - 1e-8):
+            nn.final_out = (1 - 1e-8)
+        cross_loss = - (sample[i][-1]*math.log(nn.final_out) + (1 - sample[i][-1]) * math.log(1 - nn.final_out))
+        result += cross_loss
+    return cross_loss
+
+def SCV_v3(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, gd_tech):
+    avg_loss_list = []
+
+    each_fold_size = int(float(total_train_size) / num_folds + 0.5)
+    pos_ratio = float(len(all_pos_train_sample)) / total_train_size
+    each_fold_pos_size = int(float(each_fold_size) * pos_ratio + 0.5)
+    each_fold_neg_size = each_fold_size - each_fold_pos_size
+
+    # Initialize all weights of all perceptrons in neural network to [-1, 1)
+    nn_list = []
+    for n in range(num_folds):
+        random.seed(num_epochs)
+        np.random.seed(num_epochs)
+        nn = NeuralNetwork(len(header) - 1, learning_rate, gd_tech)
+        nn_list.append(nn)
+
+    for i in range(num_epochs):
+        time_start = time.clock()
+
+        #all_test_results = [None] * (total_train_size)
+        cross_test_loss = 0
+        cross_train_loss = 0
+        for n in range(num_folds):
+            pos_test_start_idx = n * each_fold_pos_size
+            neg_test_start_idx = n * each_fold_neg_size
+
+            if n == num_folds - 1:
+                pos_test_end_idx = len(all_pos_train_sample) - 1
+                neg_test_end_idx = len(all_neg_train_sample) - 1
+            else:
+                pos_test_end_idx = (n + 1) * each_fold_pos_size - 1
+                neg_test_end_idx = (n + 1) * each_fold_neg_size - 1
+
+            pos_test_sample = all_pos_train_sample[pos_test_start_idx : (pos_test_end_idx + 1)]
+            neg_test_sample = all_neg_train_sample[neg_test_start_idx : (neg_test_end_idx + 1)]
+
+            test_sample = pos_test_sample + neg_test_sample;
+            #random.shuffle(test_sample)
+
+            pos_train_sample = all_pos_train_sample[0 : pos_test_start_idx] + all_pos_train_sample[(pos_test_end_idx + 1) : ]
+            neg_train_sample = all_neg_train_sample[0 : neg_test_start_idx] + all_neg_train_sample[(neg_test_end_idx + 1) : ]
+
+            train_sample = pos_train_sample + neg_train_sample;
+            #random.shuffle(train_sample)
+
+            random.shuffle(train_sample)
+            for t in train_sample:
+                # Input training sample to the network and compute all perceptrons' outputs
+                nn_list[n].calOutputs(t)
+
+                # Update weights based on gradient descent theory
+                nn_list[n].updateWeight(t)
+
+            cross_test_loss += getLoss(test_sample, nn_list[n])
+            cross_train_loss += getLoss(train_sample, nn_list[n])
+
+        time_elapsed = (time.clock() - time_start)
+        print('i = {}, time_elapsed = {}'.format(i, time_elapsed))
+
+        print('total_train_size = {}, cross-train-loss = {}, cross-test-loss = {}'.format( \
+                total_train_size, cross_train_loss / num_folds, cross_test_loss / num_folds))
+        avg_loss_list.append(cross_test_loss / num_folds)
+
+    return avg_loss_list
+
 def SCV(all_pos_train_sample, all_neg_train_sample, total_train_size, num_folds, num_epochs, learning_rate, gd_tech):
     each_fold_size = int(float(total_train_size) / num_folds + 0.5)
     pos_ratio = float(len(all_pos_train_sample)) / total_train_size
@@ -583,6 +660,33 @@ def plotPartB5(pos_train_sample, neg_train_sample, gd_tech):
     l = plt.legend(loc = 4)
     plt.show()
 
+def plot_loss_epoch(pos_train_sample, neg_train_sample, total_train_size, num_epochs):
+    #num_epochs = 10
+    epoch_list = [(i + 1) for i in range(num_epochs)]
+
+    avg_loss_list = SCV_v3(pos_train_sample, neg_train_sample, total_train_size, 10, num_epochs, 0.01, 'SGD')
+    new_x, new_y = zip(*sorted(zip(epoch_list, avg_loss_list)))
+    plt.plot(new_x, new_y, 'ro-', label='SGD')
+
+    avg_loss_list_adagrad = SCV_v3(pos_train_sample, neg_train_sample, total_train_size, 10, num_epochs, 0.01, 'AdaGrad')
+    new_x, new_y = zip(*sorted(zip(epoch_list, avg_loss_list_adagrad)))
+    plt.plot(new_x, new_y, 'go-', label='AdaGrad')
+
+    avg_loss_list_adam = SCV_v3(pos_train_sample, neg_train_sample, total_train_size, 10, num_epochs, 0.01, 'Adam')
+    new_x, new_y = zip(*sorted(zip(epoch_list, avg_loss_list_adam)))
+    plt.plot(new_x, new_y, 'bo-', label='Adam')
+
+    global_min = min([ min(avg_loss_list), min(avg_loss_list_adagrad), min(avg_loss_list_adam) ])
+    global_max = max([ max(avg_loss_list), max(avg_loss_list_adagrad), max(avg_loss_list_adam) ])
+    plt.axis([1, epoch_list[-1], 0, global_max + 0.1])
+    plt.grid(which='both')
+    plt.xlabel('# of epoch')
+    plt.ylabel('cross entropy loss')
+    plt.title("Cross Entropy Loss vs Epoch")
+    l = plt.legend(loc = 4)
+    #plt.show()
+    plt.savefig('loss_vs_epoch', format='png')
+
 def main():
     #assert len(sys.argv) == 5
 
@@ -627,8 +731,10 @@ def main():
     # Part B 4 - Output accuracy for each epoch
     #plotPartB4(pos_train_sample, neg_train_sample, total_train_size, gd_tech)
 
+
     # Part B 5 - Output accuracy for each data size
-    plotPartB5(pos_train_sample, neg_train_sample, gd_tech)
+    #plotPartB5(pos_train_sample, neg_train_sample, gd_tech)
+    plot_loss_epoch(pos_train_sample, neg_train_sample, total_train_size, 10)
 
 if __name__ == "__main__":
     main()
