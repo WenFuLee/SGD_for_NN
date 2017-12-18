@@ -49,25 +49,13 @@ class NeuralNetwork:
             dcdz = self.final_out - 0
         else:
             dcdz = self.final_out - 1
-
         
-        '''     
-        print 'dody*hidden', np.shape(dcdz*np.hstack((1, self.hidden_out)))
-        print 'all', np.shape(self.learning_rate*dcdz*np.hstack((1, self.hidden_out)))
-        print 'all', np.shape(self.learning_rate*np.hstack((1, self.hidden_out))*dcdz)
-        '''     
         # Update weights of output layer (V_matrix)
         new_V = self.V_matrix - self.learning_rate * np.hstack((1, self.hidden_out)) * dcdz # 1+hidden, 1
 
         # Update weights of W_matrix
         gamma = np.multiply( self.V_matrix[1:], np.multiply(self.hidden_out, 1 - self.hidden_out)) * dcdz # hidden, 1
         new_W = self.W_matrix - self.learning_rate * np.outer(np.hstack((1, train_sample[:-2])), gamma) # 1+p, hidden
-        '''     
-        print "W", np.shape(self.W_matrix)
-        print "V", np.shape(self.V_matrix)
-        print "newW", np.shape(new_W)
-        print "newV", np.shape(new_V)
-        '''
         self.V_matrix = new_V
         self.W_matrix = new_W
 
